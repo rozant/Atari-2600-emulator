@@ -4,8 +4,6 @@ var colorOn = "#FFF";
 var colorOff = "#000";
 
 function canvasInit(){
-    console.log("starting");
-
     //Initialize the canvas
     var canvas = document.getElementById("myCanvas");
     context = canvas.getContext("2d");
@@ -64,8 +62,9 @@ document.onkeydown = function(evt){
     var keycode = keyMap[key];
     if( keycode !== undefined ){
         chip8.keys[ keycode ] = true;
-        if( chip8.bWaitingForKey ){
-            chip8.emulateCycleSecondHalf( keycode );
+        if( chip8.waitingForKey === true ){
+			chip8.waitingForKey = keycode;
+            chip8.emulateCycle();
         }
     }
     else if(key === 80){

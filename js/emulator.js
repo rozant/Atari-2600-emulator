@@ -101,7 +101,7 @@ chip8.keys = new Uint8Array(16);
 chip8.bDisplayUpdate = false;
 
 //If the emulator is waiting for input
-chip8.bWaitingForKey = false;
+chip8.waitingForKey = false;
 
 chip8.memoryInit = function(){
     //Init 16 8-bit registers
@@ -127,7 +127,7 @@ chip8.memoryInit = function(){
     for( var i = 0; i < 16; i++ ){
         this.keys[i] = 0;
     }
-    this.bWaitingForKey = false;
+    this.waitingForKey = false;
 
     //Load Fontset
     this.loadFontset();
@@ -146,9 +146,7 @@ chip8.decodeAndExecute = function( opcode ){
 
         case 0x0000:    // 0---: more decoding
             switch( opcode & 0x000F ){
-
                 case 0x0000:    // 0x00E0: clear the screen
-                    //console.log("cls");
                     for( var k = 0; k < this.pixels.length; k++ ){
                         this.pixels[k] = false;
                     }
@@ -158,7 +156,6 @@ chip8.decodeAndExecute = function( opcode ){
                 break;
 
                 case 0x000E:    // 0x00EE: return from a subroutine
-                    //console.log("return from subroutine");
                     this.pc = this.stack[--this.sp] + 2;
                 break;
 
@@ -168,18 +165,15 @@ chip8.decodeAndExecute = function( opcode ){
         break;
 
         case 0x1000:    // 1NNN: Jumps to address NNN
-            //console.log("jump to " + (0x0FFF & opcode).toString(16));
             this.pc = 0x0FFF & opcode;
         break;
 
         case 0x2000:    // 2NNN: Calls subroutine at address NNN
-            //console.log("call subroutine at " + (0x0FFF & opcode).toString(16));
             this.stack[this.sp++] = this.pc;
             this.pc = 0x0FFF & opcode;
         break;
 
         case 0x3000:    // 3XNN: Skips the next instrouction if VX equals NN
-            //console.log("VX: " + V[ (0x0F00 & opcode) >> 8 ].toString(16) + "; NN: " + (0x00FF & opcode).toString(16) );
             if( this.V[ (0x0F00 & opcode) >> 8 ] === (0x00FF & opcode) ){
                 this.pc += 4;
             }
@@ -189,9 +183,7 @@ chip8.decodeAndExecute = function( opcode ){
         break;
 
         case 0x4000:    // 4XNN: Skips the next instrouction if VX does not equal NN
-            //console.log("VX: " + V[ (0x0F00 & opcode) >> 8 ].toString(16) + "; NN: " + (0x00FF & opcode).toString(16) );
             if( this.V[ (0x0F00 & opcode) >> 8 ] !== (0x00FF & opcode) ){
-                //console.log("skipped");
                 this.pc += 4;
             }
             else{
@@ -200,9 +192,7 @@ chip8.decodeAndExecute = function( opcode ){
         break;
 
         case 0x5000:    // 5XY0: Skips the next instrouction if VX equals VY
-            //console.log("VX: " + V[ (0x0F00 & opcode) >> 8 ].toString(16) + "; VY: " + V[ (0x00F0 & opcode) >> 4 ].toString(16) );
             if( this.V[ (0x0F00 & opcode) >> 8 ] === this.V[ (0x00F0 & opcode) >> 4 ] ){
-                //console.log("skipped");
                 this.pc += 4;
             }
             else{
@@ -211,19 +201,18 @@ chip8.decodeAndExecute = function( opcode ){
         break;
 
         case 0x6000:    // 6XNN: Sets VX to NN
-            //console.log("VX = " + (0x00FF & opcode).toString(16) );
             this.updateReg( (0x0F00 & opcode) >> 8, 0x00FF & opcode );
             this.pc += 2;
         break;
 
         case 0x7000:    // 7XNN: Adds NN to VX
-            //console.log("VX += " + (0x00FF & opcode).toString(16) );
             this.updateReg( (0x0F00 & opcode) >> 8, (this.V[ (0x0F00 & opcode) >> 8 ] + (0x00FF & opcode)) & 0x00FF );
             this.pc += 2;
         break;
 
         case 0x8000:    // 8---: more decoding
             switch( opcode & 0x000F ){
+            
                 case 0x0000:    // 8XY0: Sets VX to the value of VY
                     this.updateReg( (0x0F00 & opcode) >> 8, this.V[ (0x00F0 & opcode) >> 4 ] );
                     this.pc += 2;
@@ -280,9 +269,7 @@ chip8.decodeAndExecute = function( opcode ){
         break;
 
         case 0x9000:    // Skips the next instruction if VX doesn't equal VY
-            //console.log("VX: " + V[ (0x0F00 & opcode) >> 8 ].toString(16) + "; VY: " + V[ (0x00F0 & opcode) >> 4 ].toString(16) );
             if( this.V[ (0x0F00 & opcode) >> 8 ] !== this.V[ (0x00F0 & opcode) >> 4 ] ){
-                //console.log("skipped");
                 this.pc += 4;
             }
             else{
@@ -291,13 +278,11 @@ chip8.decodeAndExecute = function( opcode ){
         break;
 
         case 0xA000:    // ANNN: sets I to the address NNN
-            //console.log("I = " + ( opcode & 0x0FFF ).toString(16) );
             this.I = opcode & 0x0FFF;
             this.pc += 2;
         break;
 
         case 0xB000:    // BNNN: Jumps to the address NNN plus V0
-            //console.log("jump " + ( (opcode & 0x0FFF) + V[0] ).toString(16) );
             this.pc = (opcode & 0x0FFF) + this.V[ 0 ];
         break;
 
@@ -310,7 +295,6 @@ chip8.decodeAndExecute = function( opcode ){
                         //       Each row of 8 pixels is read as bit-coded (with the most significant bit of each byte displayed on the left) starting from memory location I;
                         //       I value doesn't change after the execution of this instruction. 
                         //       As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that doesn't happen.
-            //console.log("Draw");
             var X = this.V[(opcode & 0x0F00) >> 8];
             var Y = this.V[(opcode & 0x00F0) >> 4];
             var spriteHeight = opcode & 0x000F;
@@ -341,7 +325,6 @@ chip8.decodeAndExecute = function( opcode ){
 
                 case 0x009E:    // EX9E: Skips the next instruction if the key stored in VX is pressed
                     if( this.keys[ this.V[ (opcode & 0x0F00) >> 8 ] ] ){
-                        //console.log("key " + V[ (opcode & 0x0F00) >> 8 ].toString(16) + " stored: skip");
                         this.pc += 4;
                     }
                     else{
@@ -351,7 +334,6 @@ chip8.decodeAndExecute = function( opcode ){
 
                 case 0x00A1:    // EXA1: Skips the next instruction if the key stored in VX isn't pressed
                     if( !this.keys[ this.V[ (opcode & 0x0F00) >> 8 ] ] ){
-                        //console.log("key " + V[ (opcode & 0x0F00) >> 8 ].toString(16) + " not stored: skip");
                         this.pc += 4;
                     }
                     else{
@@ -373,23 +355,27 @@ chip8.decodeAndExecute = function( opcode ){
                 break;
 
                 case 0x000A:    // FX0A: A key press is awaited, and then stored in VX
-                    this.bWaitingForKey = true;
+                    if (this.waitingForKey === false) {
+                        this.waitingForKey = true;
+                        return;
+                    } else {
+                        this.V[ (0x0F00 & opcode) >> 8 ] = this.waitingForKey;
+                        this.waitingForKey = false;
+                    }
+                    this.pc += 2;
                 break;
 
                 case 0x0015:    // FX15: Sets the delay timer to VX
-                    //console.log("delay_timer = VX");
                     this.delay_timer = this.V[ (0x0F00 & opcode) >> 8 ];
                     this.pc += 2;
                 break;
 
                 case 0x0018:    // FX19: Sets the sound timer to VX
-                    //console.log("sound_timer = VX");
                     this.sound_timer = this.V[ (0x0F00 & opcode) >> 8 ];
                     this.pc += 2;
                 break;
 
                 case 0x001E:    // FX1E: Adds VX to I
-                    //console.log("I = I + VX");
                     this.I += this.V[ (0x0F00 & opcode) >> 8 ];
                     if( this.I & 0xF000 ){
                         this.updateReg( 0xF, 1 );
@@ -402,7 +388,6 @@ chip8.decodeAndExecute = function( opcode ){
                 break;
 
                 case 0x0029:    // FX29: Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font
-                    //console.log("I = char location");
                     this.I = 0x50 + ( this.V[ (0x0F00 & opcode) >> 8 ] * 5 );
                     this.pc += 2;
                 break;
@@ -411,7 +396,6 @@ chip8.decodeAndExecute = function( opcode ){
                                 //       the most significant of three digits at the address in I, 
                                 //       the middle digit at I plus 1, 
                                 //       and the least significant digit at I plus 2
-                    //console.log("Store each decimal");
                     var VX = this.V[(opcode & 0x0F00) >> 8]
                     this.memoryView[this.I]     = Math.floor( VX / 100);
                     this.memoryView[this.I + 1] = Math.floor( VX / 10) % 10;
@@ -420,7 +404,6 @@ chip8.decodeAndExecute = function( opcode ){
                 break;
 
                 case 0x0055:    // FX55: Stores V0 to VX in memory starting at address I
-                    //console.log("store all registers in memory");
                     X = (opcode & 0x0F00) >> 8;
                     for( var i = 0; i <= X; i++ ){
                         this.memoryView[this.I+i] = this.V[i];
@@ -429,13 +412,12 @@ chip8.decodeAndExecute = function( opcode ){
                 break;
 
                 case 0x0065:    // FX65: Fills V0 to VX with values from memory starting at address I
-                    //console.log("get all registers from memory");
                     X = (opcode & 0x0F00) >> 8;
                     for( var i = 0; i <= X; i++ ){
                         this.updateReg( i, this.memoryView[this.I+i] );
                     }
                     this.pc += 2;
-                break;
+                    break;
 
                 default:
                     console.log("Unknown opcode: " + opcode.toString(16));
@@ -465,25 +447,7 @@ chip8.emulateCycle = function(){
     //Decode and execute opcode
     this.decodeAndExecute( opcode );
 
-    if( !this.bWaitingForKey && !this.paused ){
-        //Get input
-
-        //Execute next instruction
-        var _this = this;
-        this.tick = setTimeout( function(){_this.emulateCycle()}, this.timeout );
-    }
-};
-
-//TODO: Condense similar code with emulateCycle
-chip8.emulateCycleSecondHalf = function( key ){
-    //TODO: should only be called when bWaitingForKey is set anyway
-    if(this.bWaitingForKey){
-        this.updateReg( (0x0F00 & opcode) >> 8, key );
-        this.pc += 2;
-        this.bWaitingForKey = false;
-    }
-    
-    if( !this.paused ){
+    if( !this.waitingForKey && !this.paused ){
         //Get input
 
         //Execute next instruction
